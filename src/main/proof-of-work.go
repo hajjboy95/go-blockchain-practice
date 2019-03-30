@@ -9,7 +9,7 @@ import (
 	"strconv"
 )
 
-const targetBits = 16
+const targetBits = 16 //implement difficulty adjustment according to overall hash rate of network
 
 type ProofOfWork struct {
 	block  *Block
