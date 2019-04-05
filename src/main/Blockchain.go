@@ -1,6 +1,10 @@
 package main
 
 import (
+	"fmt"
+	"log"
+	"os"
+
 	"github.com/boltdb/bolt"
 )
 
@@ -12,7 +16,7 @@ type Blockchain struct {
 	db  *bolt.DB
 }
 
-func (bc *Blockchain) AddBlock(data string) {
+func (bc *Blockchain) MineBlock(transactions []*Transaction) {
 	var lastHash []byte
 	err := bc.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(blocksBucket))
@@ -20,33 +24,79 @@ func (bc *Blockchain) AddBlock(data string) {
 		return nil
 	})
 	if err != nil {
+		log.Panic(err)
 	}
 
-	newBlock := NewBlock(data, lastHash)
+	newBlock := NewBlock(transactions, lastHash)
 
 	err = bc.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(blocksBucket))
 		err := b.Put(newBlock.Hash, newBlock.Serialize())
 		err = b.Put([]byte("l"), newBlock.Hash)
 		if err != nil {
+			log.Panic(err)
 		}
 		bc.tip = newBlock.Hash
 		return nil
 	})
 }
-
-func NewGenesisBlock() *Block {
-	return NewBlock("Genisis Block", []byte{})
+func NewGenesisBlock(coinbase *Transaction) *Block {
+	return NewBlock([]*Transaction{coinbase}, []byte{})
 }
 
-func NewBlockchain() *Blockchain {
+func CreateBlockchain(address string) *Blockchain {
+	if dbExists() {
+		fmt.Println("Blockchain Already exists")
+		os.Exit(1)
+	}
+
+	var tip []byte
+	db, err := bolt.Open(dbFile, 0600, nil)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	err = db.Update(func (tx *bolt.Tx) error {
+		cbtx := NewCoinBaseTX(address, genesisCoinbaseData)
+		genisis := NewGenesisBlock(cbtx)
+
+		b, err := tx.CreateBucket([]byte(blocksBucket))
+		if err != nil {
+			log.Panic(err)
+		}
+		err = b.Put(genisis.Hash, genisis.Serialize())
+		if err != nil {
+			log.Panic(err)
+		}
+
+		tip = genisis.Hash
+		return nil
+	})
+
+	if err != nil {
+		log.Panic(err)
+	}
+
+	bc := Blockchain{tip, db}
+	return &bc
+}
+
+func dbExists() bool {
+	if _, err := os.Stat(dbFile); os.IsNotExist(err) {
+		return false
+	}
+	return true
+}
+
+func NewBlockchain(address string) *Blockchain {
 	var tip []byte
 	db, err := bolt.Open(dbFile, 0600, nil)
 
 	err = db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(blocksBucket))
 		if b == nil {
-			genesis := NewGenesisBlock()
+			cbTx := NewCoinBaseTX(address, genesisCoinbaseData)
+			genesis := NewGenesisBlock(cbTx)
 			b, err := tx.CreateBucket([]byte(blocksBucket))
 			err = b.Put(genesis.Hash, genesis.Serialize())
 			err = b.Put([]byte("l"), genesis.Hash)
@@ -64,6 +114,19 @@ func NewBlockchain() *Blockchain {
 
 	bc := &Blockchain{tip, db}
 	return bc
+}
+
+func NewCoinBaseTX(to, data string) *Transaction {
+	if data == "" {
+		data = fmt.Sprint("reward to %s", to)
+	}
+
+	txin := TXInput{[]byte{}, -1, data}
+	txout := TXOutput{subsidy, to}
+	tx := Transaction{nil, []TXInput{txin}, []TXOutput{txout}}
+	tx.SetId()
+
+	return &tx
 }
 
 func (bc *Blockchain) Iterator() *BlockchainIterator {
