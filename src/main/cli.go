@@ -8,7 +8,6 @@ import (
 )
 
 type CLI struct {
-	bc *Blockchain
 }
 
 func (cli *CLI) validateArgs() {
@@ -42,8 +41,10 @@ func (cli *CLI) send(from, to string, amount int) {
 	defer bc.db.Close()
 
 	tx := NewUTXOTransaction(from, to, amount, bc)
+	bc.MineBlock([]*Transaction{tx})
+	fmt.Println("Success!")
 
-} 
+}
 
 func (cli *CLI) printUsage() {
 	fmt.Println("Usage:")
@@ -61,6 +62,11 @@ func (cli *CLI) Run() {
 	getBalanceCmd := flag.NewFlagSet("getbalance", flag.ExitOnError)
 	getBalanceAddress := getBalanceCmd.String("address", "", "The address to get balance for")
 
+	sendCmd := flag.NewFlagSet("send", flag.ExitOnError)
+	sendFrom := sendCmd.String("from", "", "from address")
+	sendTo := sendCmd.String("to", "", "Destination wallet address")
+	sendAmount := sendCmd.Int("amount", 0, "Amount to send")
+
 	switch os.Args[1] {
 
 	case "getbalance":
@@ -74,6 +80,13 @@ func (cli *CLI) Run() {
 		if err != nil {
 			log.Panic(err)
 		}
+
+	case "send":
+		err := sendCmd.Parse(os.Args[2:])
+		if err != nil {
+			log.Panic(err)
+		}
+
 	default:
 		cli.printUsage()
 		os.Exit(1)
@@ -93,6 +106,15 @@ func (cli *CLI) Run() {
 			os.Exit(1)
 		}
 		cli.createBlockchain(*createBlockchainAddress)
+	}
+
+	if sendCmd.Parsed() {
+		if *sendFrom == "" || *sendTo == "" || *sendAmount <= 0 {
+			sendCmd.Usage()
+			os.Exit(1)
+		}
+
+		cli.send(*sendFrom, *sendTo, *sendAmount)
 	}
 
 }
