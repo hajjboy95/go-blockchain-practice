@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/gob"
+	"log"
 	"time"
 )
 
@@ -42,6 +43,7 @@ func DeserializeBlock(d []byte) *Block {
 	err := decoder.Decode(&block)
 
 	if err != nil {
+		log.Panic(err)
 	}
 	return &block
 }
@@ -54,3 +56,8 @@ func NewBlock(transactions []*Transaction, prevBlockHash []byte) *Block {
 	block.Nonce = nonce
 	return block
 }
+
+func NewGenesisBlock(coinbase *Transaction) *Block {
+	return NewBlock([]*Transaction{coinbase}, []byte{})
+}
+

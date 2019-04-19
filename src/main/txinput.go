@@ -1,11 +1,16 @@
 package main
 
+import "bytes"
+
 type TXInput struct {
 	TXid      []byte
 	Vout      int
-	ScriptSig string
+	Signature []byte
+	PubKey []byte
 }
 
-func (in *TXInput) CanUnlockWith(unlockingData string) bool {
-	return in.ScriptSig == unlockingData
+func (in *TXInput) UsesKey(pubKeyHash []byte) bool {
+	lockingHash := HashPubKey(in.PubKey)
+	return bytes.Compare(lockingHash, pubKeyHash) == 0
 }
+

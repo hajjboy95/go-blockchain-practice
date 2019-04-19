@@ -41,9 +41,6 @@ func (bc *Blockchain) MineBlock(transactions []*Transaction) {
 		return nil
 	})
 }
-func NewGenesisBlock(coinbase *Transaction) *Block {
-	return NewBlock([]*Transaction{coinbase}, []byte{})
-}
 
 func CreateBlockchain(address string) *Blockchain {
 	if dbExists() {
@@ -117,18 +114,6 @@ func NewBlockchain(address string) *Blockchain {
 	return bc
 }
 
-func NewCoinBaseTX(to, data string) *Transaction {
-	if data == "" {
-		data = fmt.Sprint("reward to %s", to)
-	}
-
-	txin := TXInput{[]byte{}, -1, data}
-	txout := TXOutput{subsidy, to}
-	tx := Transaction{nil, []TXInput{txin}, []TXOutput{txout}}
-	tx.SetId()
-
-	return &tx
-}
 
 func (bc *Blockchain) Iterator() *BlockchainIterator {
 	bci := &BlockchainIterator{bc.tip, bc.db}
